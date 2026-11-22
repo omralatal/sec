@@ -1,0 +1,782 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>SecureShop | CET431 Software Security</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@400;500;600;700&display=swap" rel="stylesheet" />
+    <script>
+      window.tailwind = {
+        config: {
+          theme: {
+            extend: {
+              fontFamily: { fredoka: ['Fredoka', 'sans-serif'] },
+              colors: { ink: '#101010', sunshine: '#FFE44D', bubblegum: '#FF75B5', aqua: '#54DFFF', minty: '#8CF1B2' },
+            },
+          },
+        },
+      }
+    </script>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+      * { box-sizing: border-box; }
+      body { min-height: 100vh; margin: 0; background: #fff8de; color: #101010; font-family: 'Fredoka', sans-serif; }
+      button, input, select { font: inherit; }
+      .comic-panel { border: 4px solid #000; box-shadow: 7px 7px 0 #000; }
+      .comic-input { width: 100%; border: 4px solid #000; border-radius: .75rem; background: #fff; padding: .65rem .95rem; font-size: .95rem; font-weight: 500; outline: none; transition: background-color .15s ease; }
+      .comic-input:focus { background: #54DFFF; }
+      .comic-button { display: inline-flex; align-items: center; justify-content: center; gap: .4rem; border: 4px solid #000; border-radius: .75rem; padding: .65rem 1.1rem; color: #101010; text-align: center; font-size: .95rem; font-weight: 700; box-shadow: 4px 4px 0 #000; transition: transform .1s ease, box-shadow .1s ease; cursor: pointer; }
+      .comic-button:hover { transform: translate(.5px, -.5px); box-shadow: 5px 5px 0 #000; }
+      .comic-button:active { transform: translate(3px, 3px); box-shadow: none; }
+      .comic-button:disabled { cursor: not-allowed; opacity: .5; }
+      .field-label { display: block; margin-bottom: .35rem; font-size: .8rem; font-weight: 700; letter-spacing: .03em; text-transform: uppercase; }
+    </style>
+  </head>
+  <body>
+    <header class="relative z-20 border-b-4 border-black bg-sunshine">
+      <nav class="mx-auto flex max-w-7xl flex-wrap items-center justify-between gap-4 px-5 py-4 sm:px-8">
+        <a href="#" onclick="switchView('shop')" class="group flex items-center gap-3">
+          <span class="flex h-11 w-11 items-center justify-center rounded-2xl border-4 border-black bg-aqua text-2xl font-black shadow-[4px_4px_0_0_#000] transition group-hover:-rotate-6">S</span>
+          <span class="text-2xl font-bold tracking-tight sm:text-3xl">Secure<span class="text-bubblegum">Shop</span></span>
+        </a>
+
+        <div id="user-bar" class="hidden flex-wrap items-center gap-2 sm:gap-3">
+          <button type="button" onclick="switchView('shop')" class="comic-button bg-white py-2 text-sm">Shop</button>
+          <button type="button" onclick="switchView('account')" class="comic-button bg-aqua py-2 text-sm">Account & Orders</button>
+          <button id="admin-nav-btn" type="button" onclick="switchView('admin')" class="comic-button hidden bg-bubblegum py-2 text-sm">Admin Panel</button>
+          <div class="rounded-xl border-4 border-black bg-white px-3.5 py-1.5 text-sm font-bold shadow-[4px_4px_0_0_#000]">
+            <span id="username-display" class="text-bubblegum"></span> | Credit: <span id="credit-display" class="text-emerald-700"></span>
+          </div>
+          <button id="logout-button" type="button" class="comic-button bg-ink !text-white py-2 text-sm">Logout</button>
+        </div>
+      </nav>
+    </header>
+
+    <main class="relative z-10 mx-auto max-w-7xl px-5 py-8 sm:px-8 sm:py-12">
+      <!-- AUTH VIEW -->
+      <section id="auth-view">
+        <div class="mx-auto mb-10 max-w-3xl text-center">
+          <span class="inline-block -rotate-1 rounded-lg border-4 border-black bg-minty px-4 py-1 text-sm font-bold shadow-[4px_4px_0_0_#000]">CET431 Software Security Project</span>
+          <h1 class="mt-4 text-4xl font-bold leading-tight sm:text-5xl">Hardened E-Commerce <span class="text-bubblegum">Platform</span></h1>
+          <p class="mx-auto mt-3 max-w-xl text-base font-medium">Register a new account, confirm your verification code, and log in with Argon2id + TOTP Multi-Factor Authentication.</p>
+        </div>
+
+        <!-- Post-Registration Secrets Banner -->
+        <div id="reg-secret-box" class="comic-panel mx-auto mb-8 hidden max-w-4xl rounded-3xl bg-sunshine p-6">
+          <h3 class="text-xl font-bold">Account Created — Save Your Verification & MFA Credentials</h3>
+          <p class="mt-1 text-sm font-medium">1) Confirm your account using the code below. 2) Add the TOTP Secret to Google Authenticator.</p>
+          <div class="mt-4 grid gap-4 sm:grid-cols-2">
+            <div class="rounded-xl border-4 border-black bg-white p-3">
+              <span class="text-xs font-bold uppercase text-stone-500">Account Confirmation Code</span>
+              <p id="disp-confirm-code" class="mt-1 font-mono text-xl font-bold tracking-widest text-bubblegum"></p>
+            </div>
+            <div class="rounded-xl border-4 border-black bg-white p-3">
+              <span class="text-xs font-bold uppercase text-stone-500">TOTP MFA Secret (Base32)</span>
+              <p id="disp-totp-secret" class="mt-1 break-all font-mono text-lg font-bold text-cyan-700"></p>
+            </div>
+          </div>
+        </div>
+
+        <div class="mx-auto grid max-w-6xl gap-7 lg:grid-cols-3">
+          <!-- 1. Register -->
+          <section class="comic-panel rounded-3xl bg-aqua p-6">
+            <p class="text-xs font-bold uppercase tracking-widest">Step 1</p>
+            <h2 class="mt-1 text-2xl font-bold">Create Account</h2>
+            <form id="register-form" class="mt-5 space-y-4">
+              <div>
+                <label class="field-label">Username</label>
+                <input class="comic-input" name="username" required minlength="3" placeholder="e.g. student_dev" />
+              </div>
+              <div>
+                <label class="field-label">Email</label>
+                <input class="comic-input" name="email" type="email" required placeholder="you@sut.edu.eg" />
+              </div>
+              <div>
+                <label class="field-label">Strong Password</label>
+                <input class="comic-input" name="password" type="password" required placeholder="8+ chars, Upper, Lower, Digit" />
+              </div>
+              <button class="comic-button w-full bg-sunshine" type="submit">Register</button>
+            </form>
+          </section>
+
+          <!-- 2. Confirm Account -->
+          <section class="comic-panel rounded-3xl bg-minty p-6">
+            <p class="text-xs font-bold uppercase tracking-widest">Step 2</p>
+            <h2 class="mt-1 text-2xl font-bold">Confirm Account</h2>
+            <form id="confirm-form" class="mt-5 space-y-4">
+              <div>
+                <label class="field-label">Username</label>
+                <input class="comic-input" id="confirm-username" name="username" required placeholder="Your registered username" />
+              </div>
+              <div>
+                <label class="field-label">Confirmation Code</label>
+                <input class="comic-input font-mono uppercase tracking-widest" id="confirm-code-input" name="confirmation_code" required placeholder="6-char code" />
+              </div>
+              <button class="comic-button w-full bg-white" type="submit">Activate Account</button>
+            </form>
+          </section>
+
+          <!-- 3. Login with MFA -->
+          <section class="comic-panel rounded-3xl bg-bubblegum p-6">
+            <p class="text-xs font-bold uppercase tracking-widest">Step 3</p>
+            <h2 class="mt-1 text-2xl font-bold">Secure Login</h2>
+            <form id="login-form" class="mt-5 space-y-4">
+              <div>
+                <label class="field-label">Username</label>
+                <input class="comic-input" name="username" required placeholder="admin or omar" />
+              </div>
+              <div>
+                <label class="field-label">Password</label>
+                <input class="comic-input" name="password" type="password" required placeholder="Your password" />
+              </div>
+              <div>
+                <label class="field-label">6-Digit TOTP Code</label>
+                <input class="comic-input tracking-[0.25em]" name="otp" pattern="[0-9]{6}" maxlength="6" required placeholder="000000" />
+              </div>
+              <button class="comic-button w-full bg-sunshine" type="submit">Log In with MFA</button>
+            </form>
+          </section>
+        </div>
+      </section>
+
+      <!-- SHOP VIEW -->
+      <section id="shop-view" class="hidden">
+        <div class="mb-8 flex flex-col justify-between gap-4 lg:flex-row lg:items-end">
+          <div>
+            <span class="inline-block rounded-lg border-4 border-black bg-bubblegum px-3 py-1 text-xs font-bold uppercase shadow-[3px_3px_0_0_#000]">Product Catalogue</span>
+            <h1 class="mt-3 text-3xl font-bold sm:text-4xl">Browse & Filter Products</h1>
+          </div>
+          <div class="flex flex-wrap items-center gap-3">
+            <input id="search-input" class="comic-input !w-56" placeholder="Search products..." />
+            <select id="category-filter" class="comic-input !w-44">
+              <option value="All">All Categories</option>
+              <option value="Computers">Computers</option>
+              <option value="Audio">Audio</option>
+              <option value="Accessories">Accessories</option>
+              <option value="Security">Security</option>
+            </select>
+            <button type="button" onclick="loadProducts()" class="comic-button bg-aqua">Filter</button>
+          </div>
+        </div>
+
+        <div class="grid gap-8 lg:grid-cols-[minmax(0,1fr)_370px]">
+          <div>
+            <div id="products-grid" class="grid gap-6 sm:grid-cols-2 xl:grid-cols-3"></div>
+
+            <!-- Newsletter Section -->
+            <div class="comic-panel mt-10 rounded-3xl bg-aqua p-6">
+              <div class="flex flex-col justify-between gap-4 sm:flex-row sm:items-center">
+                <div>
+                  <h3 class="text-xl font-bold">Newsletter Signup</h3>
+                  <p class="text-sm font-medium">Subscribe to receive an instant 10% discount coupon code.</p>
+                </div>
+                <form id="newsletter-form" class="flex w-full max-w-md gap-2">
+                  <input class="comic-input" name="email" type="email" required placeholder="Enter your email" />
+                  <button type="submit" class="comic-button shrink-0 bg-sunshine">Subscribe</button>
+                </form>
+              </div>
+            </div>
+          </div>
+
+          <!-- Shopping Cart & Checkout -->
+          <aside class="h-fit lg:sticky lg:top-6">
+            <div class="comic-panel rounded-3xl bg-minty p-6">
+              <div class="flex items-center justify-between border-b-4 border-black pb-3">
+                <h2 class="text-2xl font-bold">Shopping Cart</h2>
+                <span id="cart-count" class="rounded-full border-[3px] border-black bg-sunshine px-3 py-0.5 text-sm font-bold">0</span>
+              </div>
+
+              <ul id="cart-items" class="hidden divide-y-2 divide-black"></ul>
+              <div id="cart-empty" class="py-8 text-center font-bold">Your cart is empty.</div>
+
+              <div id="cart-total-bar" class="mt-3 hidden border-t-4 border-black pt-3 text-right text-lg font-bold">
+                Subtotal: <span id="cart-subtotal">$0.00</span>
+              </div>
+
+              <form id="checkout-form" class="mt-4 border-t-4 border-black pt-4">
+                <label class="field-label">Coupon Code</label>
+                <input class="comic-input bg-[#fff8de]" name="coupon_code" autocomplete="off" placeholder="WELCOME20 or NEWSLETTER10" />
+                <button type="submit" class="comic-button mt-4 w-full bg-sunshine">Pay with Store Credit</button>
+              </form>
+
+              <!-- Order Confirmation Receipt -->
+              <div id="order-receipt" class="mt-5 hidden rounded-2xl border-4 border-black bg-white p-4 text-sm">
+                <p class="font-bold uppercase text-emerald-700">Order Confirmed</p>
+                <p class="mt-1"><strong>Order ID:</strong> #<span id="rec-id"></span></p>
+                <p><strong>Items:</strong> <span id="rec-items"></span></p>
+                <p><strong>Coupon:</strong> <span id="rec-coupon"></span></p>
+                <p><strong>Total Paid:</strong> <span id="rec-paid"></span></p>
+              </div>
+            </div>
+          </aside>
+        </div>
+      </section>
+
+      <!-- USER ACCOUNT & ORDERS VIEW -->
+      <section id="account-view" class="hidden">
+        <h1 class="mb-6 text-3xl font-bold sm:text-4xl">My Account & Order History</h1>
+        <div class="grid gap-8 lg:grid-cols-2">
+          <div class="comic-panel rounded-3xl bg-white p-6">
+            <h2 class="text-2xl font-bold">Profile Settings</h2>
+            <form id="profile-form" class="mt-5 space-y-4">
+              <div>
+                <label class="field-label">Username (Read-Only)</label>
+                <input id="prof-username" class="comic-input bg-stone-100" disabled />
+              </div>
+              <div>
+                <label class="field-label">Email Address</label>
+                <input id="prof-email" name="email" type="email" class="comic-input" required />
+              </div>
+              <div>
+                <label class="field-label">Current Password (Required to change password)</label>
+                <input name="current_password" type="password" class="comic-input" placeholder="Enter current password" />
+              </div>
+              <div>
+                <label class="field-label">New Password (Optional)</label>
+                <input name="new_password" type="password" class="comic-input" placeholder="Leave blank to keep current" />
+              </div>
+              <button type="submit" class="comic-button bg-sunshine">Update Profile</button>
+            </form>
+          </div>
+
+          <div class="comic-panel rounded-3xl bg-aqua p-6">
+            <h2 class="text-2xl font-bold">Order History</h2>
+            <div id="orders-list" class="mt-5 space-y-3"></div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ADMIN PANEL VIEW -->
+      <section id="admin-view" class="hidden">
+        <div class="mb-6 flex flex-wrap items-center justify-between gap-4">
+          <h1 class="text-3xl font-bold sm:text-4xl">Admin Control Panel</h1>
+          <button type="button" onclick="loadAdminData()" class="comic-button bg-white">Refresh All Data</button>
+        </div>
+
+        <div class="grid gap-8 lg:grid-cols-2">
+          <!-- Manage Users -->
+          <div class="comic-panel rounded-3xl bg-white p-6">
+            <h2 class="text-xl font-bold">Manage Users</h2>
+            <div id="admin-users-list" class="mt-4 space-y-3"></div>
+          </div>
+
+          <!-- Manage Coupons -->
+          <div class="comic-panel rounded-3xl bg-minty p-6">
+            <h2 class="text-xl font-bold">Manage Coupons</h2>
+            <form id="admin-coupon-form" class="mt-4 flex flex-wrap gap-2">
+              <input name="code" class="comic-input !w-40 uppercase" required placeholder="CODE25" />
+              <input name="discount_percent" type="number" step="0.01" min="0.01" max="0.99" class="comic-input !w-36" required placeholder="0.25 (25%)" />
+              <button type="submit" class="comic-button bg-sunshine">Add Coupon</button>
+            </form>
+            <div id="admin-coupons-list" class="mt-4 space-y-2"></div>
+          </div>
+
+          <!-- Manage Products -->
+          <div class="comic-panel rounded-3xl bg-aqua p-6 lg:col-span-2">
+            <h2 class="text-xl font-bold">Manage Products</h2>
+            <form id="admin-product-form" class="mt-4 grid gap-3 sm:grid-cols-5">
+              <input name="name" class="comic-input" required placeholder="Product Name" />
+              <input name="category" class="comic-input" required placeholder="Category" />
+              <input name="description" class="comic-input" placeholder="Description" />
+              <input name="price" type="number" step="0.01" min="0" class="comic-input" required placeholder="Price ($)" />
+              <button type="submit" class="comic-button bg-sunshine">Add Product</button>
+            </form>
+            <div id="admin-products-list" class="mt-5 grid gap-3 sm:grid-cols-2"></div>
+          </div>
+
+          <!-- Security Audit Logs (Lecture 2 Non-Repudiation) -->
+          <div class="comic-panel rounded-3xl bg-white p-6 lg:col-span-2">
+            <h2 class="text-xl font-bold">Security Audit Logs (Accountability & Non-Repudiation)</h2>
+            <div class="mt-4 max-h-80 overflow-auto rounded-xl border-4 border-black">
+              <table class="w-full text-left text-xs sm:text-sm">
+                <thead class="border-b-4 border-black bg-sunshine font-bold">
+                  <tr>
+                    <th class="p-2.5">Time</th>
+                    <th class="p-2.5">User</th>
+                    <th class="p-2.5">Action</th>
+                    <th class="p-2.5">Details</th>
+                    <th class="p-2.5">Status</th>
+                  </tr>
+                </thead>
+                <tbody id="admin-logs-body" class="divide-y-2 divide-black"></tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      </section>
+    </main>
+
+    <!-- Product Detail Modal -->
+    <div id="product-modal" class="fixed inset-0 z-50 hidden items-center justify-center bg-black/60 p-4">
+      <div class="comic-panel w-full max-w-lg rounded-3xl bg-white p-6">
+        <div class="flex items-start justify-between gap-4">
+          <div>
+            <span id="modal-cat" class="rounded-md border-2 border-black bg-aqua px-2 py-0.5 text-xs font-bold"></span>
+            <h3 id="modal-title" class="mt-2 text-2xl font-bold"></h3>
+          </div>
+          <button type="button" onclick="closeModal()" class="comic-button bg-bubblegum !px-3 !py-1">X</button>
+        </div>
+        <p id="modal-desc" class="mt-4 text-sm font-medium leading-relaxed text-stone-700"></p>
+        <div class="mt-5 flex items-center justify-between border-t-4 border-black pt-4">
+          <div>
+            <p class="text-xs font-bold uppercase text-stone-500">Price</p>
+            <p id="modal-price" class="text-2xl font-bold text-emerald-700"></p>
+          </div>
+          <div>
+            <p class="text-xs font-bold uppercase text-stone-500">Available Stock</p>
+            <p id="modal-stock" class="text-lg font-bold"></p>
+          </div>
+          <button id="modal-add-btn" type="button" class="comic-button bg-sunshine">Add to Cart +</button>
+        </div>
+      </div>
+    </div>
+
+    <div id="toast-region" class="fixed bottom-5 right-5 z-50 flex w-[min(92vw,390px)] flex-col gap-3"></div>
+
+    <script>
+      let csrfToken = '';
+      let currentUser = null;
+      let productsCache = [];
+      let cartCache = {};
+
+      const $ = (s) => document.querySelector(s);
+
+      function escapeHtml(str) {
+        return String(str ?? '')
+          .replace(/&/g, '&amp;')
+          .replace(/</g, '&lt;')
+          .replace(/>/g, '&gt;')
+          .replace(/"/g, '&quot;')
+          .replace(/'/g, '&#039;');
+      }
+
+      function money(v) { return `$${Number(v || 0).toFixed(2)}`; }
+
+      function toast(text, kind = 'success') {
+        const themes = { success: ['bg-minty', 'OK'], error: ['bg-bubblegum', '!'], info: ['bg-aqua', 'i'] };
+        const [color, badge] = themes[kind] || themes.info;
+        const item = document.createElement('div');
+        item.className = `comic-panel ${color} flex items-center gap-3 rounded-2xl p-4 text-sm font-bold`;
+        item.innerHTML = `<span class="flex h-7 w-7 shrink-0 items-center justify-center rounded-full border-2 border-black bg-white text-xs">${badge}</span><p class="flex-1 leading-snug">${escapeHtml(text)}</p><button class="text-lg leading-none">x</button>`;
+        item.querySelector('button').onclick = () => item.remove();
+        $('#toast-region').append(item);
+        setTimeout(() => item.remove(), 5000);
+      }
+
+      async function api(path, options = {}) {
+        const method = (options.method || 'GET').toUpperCase();
+        const headers = { ...(options.headers || {}) };
+        if (options.body) headers['Content-Type'] = 'application/json';
+        if (['POST', 'PUT', 'DELETE'].includes(method) && csrfToken) {
+          headers['X-CSRF-Token'] = csrfToken;
+        }
+        const res = await fetch(path, { ...options, method, headers });
+        const data = await res.json().catch(() => ({}));
+        if (data.csrf_token) csrfToken = data.csrf_token;
+        if (!res.ok) throw new Error(data.error || 'Request failed.');
+        return data;
+      }
+
+      function updateNavUser() {
+        if (!currentUser) {
+          $('#auth-view').classList.remove('hidden');
+          $('#shop-view').classList.add('hidden');
+          $('#account-view').classList.add('hidden');
+          $('#admin-view').classList.add('hidden');
+          $('#user-bar').classList.add('hidden');
+          return;
+        }
+        $('#auth-view').classList.add('hidden');
+        $('#user-bar').classList.remove('hidden');
+        $('#username-display').textContent = currentUser.username;
+        $('#credit-display').textContent = money(currentUser.store_credit);
+        if (currentUser.role === 'admin') {
+          $('#admin-nav-btn').classList.remove('hidden');
+        } else {
+          $('#admin-nav-btn').classList.add('hidden');
+        }
+      }
+
+      function switchView(view) {
+        ['shop-view', 'account-view', 'admin-view'].forEach(id => $(`#${id}`).classList.add('hidden'));
+        if (view === 'shop') {
+          $('#shop-view').classList.remove('hidden');
+          loadProducts();
+          loadCart();
+        } else if (view === 'account') {
+          $('#account-view').classList.remove('hidden');
+          loadAccountAndOrders();
+        } else if (view === 'admin') {
+          $('#admin-view').classList.remove('hidden');
+          loadAdminData();
+        }
+      }
+
+      // --- Products & Detail Modal ---
+      async function loadProducts() {
+        try {
+          const search = encodeURIComponent($('#search-input').value.trim());
+          const category = encodeURIComponent($('#category-filter').value);
+          productsCache = await api(`/products?search=${search}&category=${category}`);
+          const grid = $('#products-grid');
+          grid.innerHTML = '';
+          if (!productsCache.length) {
+            grid.innerHTML = '<p class="col-span-full font-bold">No products match your search.</p>';
+            return;
+          }
+          productsCache.forEach(p => {
+            const card = document.createElement('article');
+            card.className = 'comic-panel flex flex-col rounded-2xl bg-white p-5';
+            card.innerHTML = `
+              <div class="flex items-center justify-between gap-2">
+                <span class="rounded-md border-2 border-black bg-aqua px-2 py-0.5 text-xs font-bold">${escapeHtml(p.category)}</span>
+                <span class="text-xs font-bold text-stone-500">Stock: ${p.stock}</span>
+              </div>
+              <h3 class="mt-3 text-xl font-bold">${escapeHtml(p.name)}</h3>
+              <p class="mt-2 flex-1 text-sm text-stone-600">${escapeHtml(p.description)}</p>
+              <div class="mt-4 flex items-center justify-between gap-2">
+                <span class="rounded-lg border-[3px] border-black bg-bubblegum px-3 py-1 text-lg font-bold">${money(p.price)}</span>
+                <input type="number" min="1" max="${p.stock}" value="1" class="qty-in h-10 w-16 rounded-lg border-[3px] border-black bg-sunshine text-center font-bold" />
+              </div>
+              <div class="mt-4 grid grid-cols-2 gap-2">
+                <button type="button" class="detail-btn comic-button bg-white !px-2 text-xs">Details</button>
+                <button type="button" class="add-btn comic-button bg-aqua !px-2 text-xs">Add +</button>
+              </div>
+            `;
+            card.querySelector('.detail-btn').onclick = () => openProductDetail(p.id);
+            card.querySelector('.add-btn').onclick = () => addToCart(p.id, Number(card.querySelector('.qty-in').value));
+            grid.append(card);
+          });
+        } catch (e) { toast(e.message, 'error'); }
+      }
+
+      async function openProductDetail(id) {
+        try {
+          const p = await api(`/products/${id}`);
+          $('#modal-cat').textContent = p.category;
+          $('#modal-title').textContent = p.name;
+          $('#modal-desc').textContent = p.description;
+          $('#modal-price').textContent = money(p.price);
+          $('#modal-stock').textContent = `${p.stock} units`;
+          $('#modal-add-btn').onclick = () => { addToCart(p.id, 1); closeModal(); };
+          $('#product-modal').classList.remove('hidden');
+          $('#product-modal').classList.add('flex');
+        } catch (e) { toast(e.message, 'error'); }
+      }
+
+      function closeModal() {
+        $('#product-modal').classList.add('hidden');
+        $('#product-modal').classList.remove('flex');
+      }
+
+      // --- Cart Management ---
+      async function loadCart() {
+        try {
+          cartCache = await api('/cart');
+          renderCart();
+        } catch (e) { toast(e.message, 'error'); }
+      }
+
+      function renderCart() {
+        const items = Object.values(cartCache || {});
+        const list = $('#cart-items');
+        list.innerHTML = '';
+        const totalQty = items.reduce((s, i) => s + i.quantity, 0);
+        const subtotal = items.reduce((s, i) => s + (i.price * i.quantity), 0);
+        $('#cart-count').textContent = totalQty;
+        $('#cart-subtotal').textContent = money(subtotal);
+
+        if (!items.length) {
+          $('#cart-empty').classList.remove('hidden');
+          list.classList.add('hidden');
+          $('#cart-total-bar').classList.add('hidden');
+          return;
+        }
+        $('#cart-empty').classList.add('hidden');
+        list.classList.remove('hidden');
+        $('#cart-total-bar').classList.remove('hidden');
+
+        items.forEach(item => {
+          const li = document.createElement('li');
+          li.className = 'flex items-center justify-between gap-2 py-3';
+          li.innerHTML = `
+            <div class="min-w-0 flex-1">
+              <p class="truncate font-bold">${escapeHtml(item.name)}</p>
+              <p class="text-xs font-medium">${money(item.price)} each</p>
+            </div>
+            <div class="flex items-center gap-1">
+              <button type="button" class="dec-btn rounded border-2 border-black bg-white px-2 font-bold">-</button>
+              <span class="px-1.5 text-sm font-bold">${item.quantity}</span>
+              <button type="button" class="inc-btn rounded border-2 border-black bg-white px-2 font-bold">+</button>
+              <button type="button" class="rem-btn ml-1 rounded border-2 border-black bg-bubblegum px-2 text-xs font-bold">X</button>
+            </div>
+          `;
+          li.querySelector('.dec-btn').onclick = () => updateCartQty(item.product_id, item.quantity - 1);
+          li.querySelector('.inc-btn').onclick = () => updateCartQty(item.product_id, item.quantity + 1);
+          li.querySelector('.rem-btn').onclick = () => removeCartItem(item.product_id);
+          list.append(li);
+        });
+      }
+
+      async function addToCart(product_id, quantity) {
+        try {
+          const res = await api('/cart/add', { method: 'POST', body: JSON.stringify({ product_id, quantity }) });
+          cartCache = res.cart;
+          renderCart();
+          toast('Added to cart!', 'success');
+        } catch (e) { toast(e.message, 'error'); }
+      }
+
+      async function updateCartQty(product_id, quantity) {
+        try {
+          const res = await api('/cart/update', { method: 'POST', body: JSON.stringify({ product_id, quantity }) });
+          cartCache = res.cart;
+          renderCart();
+        } catch (e) { toast(e.message, 'error'); }
+      }
+
+      async function removeCartItem(product_id) {
+        try {
+          const res = await api('/cart/remove', { method: 'POST', body: JSON.stringify({ product_id }) });
+          cartCache = res.cart;
+          renderCart();
+          toast('Item removed.', 'info');
+        } catch (e) { toast(e.message, 'error'); }
+      }
+
+      // --- Account & Orders ---
+      async function loadAccountAndOrders() {
+        try {
+          const profile = await api('/account');
+          $('#prof-username').value = profile.username;
+          $('#prof-email').value = profile.email;
+
+          const orders = await api('/orders');
+          const box = $('#orders-list');
+          box.innerHTML = '';
+          if (!orders.length) {
+            box.innerHTML = '<p class="font-bold">No orders placed yet.</p>';
+            return;
+          }
+          orders.forEach(o => {
+            const div = document.createElement('div');
+            div.className = 'rounded-2xl border-4 border-black bg-white p-4 text-sm';
+            div.innerHTML = `
+              <div class="flex justify-between font-bold">
+                <span>Order #${o.id}</span>
+                <span class="text-emerald-700">${money(o.total_paid)}</span>
+              </div>
+              <p class="mt-1 text-stone-700">${escapeHtml(o.items_summary)}</p>
+              <p class="mt-1 text-xs text-stone-500">Status: ${escapeHtml(o.status)} | Date: ${escapeHtml(o.created_at)}</p>
+            `;
+            box.append(div);
+          });
+        } catch (e) { toast(e.message, 'error'); }
+      }
+
+      // --- Admin Panel ---
+      async function loadAdminData() {
+        try {
+          const [users, coupons, products, logs] = await Promise.all([
+            api('/admin/users'),
+            api('/admin/coupons'),
+            api('/products'),
+            api('/admin/logs')
+          ]);
+
+          const uBox = $('#admin-users-list');
+          uBox.innerHTML = '';
+          users.forEach(u => {
+            const row = document.createElement('div');
+            row.className = 'flex flex-wrap items-center justify-between gap-2 rounded-xl border-2 border-black bg-stone-50 p-3 text-sm';
+            row.innerHTML = `
+              <div>
+                <strong>${escapeHtml(u.username)}</strong> (${escapeHtml(u.role)}) - Credit: ${money(u.store_credit)}
+              </div>
+              <div class="flex gap-1.5">
+                <button type="button" class="grant-btn rounded border-2 border-black bg-minty px-2 py-0.5 text-xs font-bold">+500 Credit</button>
+                <button type="button" class="del-u-btn rounded border-2 border-black bg-bubblegum px-2 py-0.5 text-xs font-bold">Delete</button>
+              </div>
+            `;
+            row.querySelector('.grant-btn').onclick = async () => {
+              await api(`/admin/users/${u.id}`, { method: 'PUT', body: JSON.stringify({ store_credit: u.store_credit + 500 }) });
+              toast('Added $500 credit.', 'success');
+              loadAdminData();
+            };
+            row.querySelector('.del-u-btn').onclick = async () => {
+              try {
+                await api(`/admin/users/${u.id}`, { method: 'DELETE' });
+                toast('User deleted.', 'info');
+                loadAdminData();
+              } catch (e) { toast(e.message, 'error'); }
+            };
+            uBox.append(row);
+          });
+
+          const cBox = $('#admin-coupons-list');
+          cBox.innerHTML = '';
+          coupons.forEach(c => {
+            const row = document.createElement('div');
+            row.className = 'flex items-center justify-between rounded-xl border-2 border-black bg-white p-2.5 text-sm font-bold';
+            row.innerHTML = `<span>${escapeHtml(c.code)} (${Math.round(c.discount_percent * 100)}% OFF)</span><button type="button" class="rounded border-2 border-black bg-bubblegum px-2 text-xs">Delete</button>`;
+            row.querySelector('button').onclick = async () => {
+              await api(`/admin/coupons/${c.id}`, { method: 'DELETE' });
+              toast('Coupon deleted.', 'info');
+              loadAdminData();
+            };
+            cBox.append(row);
+          });
+
+          const pBox = $('#admin-products-list');
+          pBox.innerHTML = '';
+          products.forEach(p => {
+            const row = document.createElement('div');
+            row.className = 'flex items-center justify-between gap-2 rounded-xl border-2 border-black bg-white p-3 text-sm';
+            row.innerHTML = `<div><strong>${escapeHtml(p.name)}</strong> (${money(p.price)} | Stock: ${p.stock})</div><button type="button" class="rounded border-2 border-black bg-bubblegum px-2.5 py-1 text-xs font-bold">Delete</button>`;
+            row.querySelector('button').onclick = async () => {
+              await api(`/admin/products/${p.id}`, { method: 'DELETE' });
+              toast('Product deleted.', 'info');
+              loadAdminData();
+            };
+            pBox.append(row);
+          });
+
+          const lBody = $('#admin-logs-body');
+          lBody.innerHTML = '';
+          logs.forEach(l => {
+            const tr = document.createElement('tr');
+            const badge = l.status === 'ALERT' ? 'bg-bubblegum' : (l.status === 'WARN' ? 'bg-sunshine' : 'bg-minty');
+            tr.innerHTML = `
+              <td class="p-2 font-mono text-xs">${escapeHtml(l.created_at)}</td>
+              <td class="p-2 font-bold">${escapeHtml(l.username)}</td>
+              <td class="p-2 font-mono text-xs font-bold">${escapeHtml(l.action)}</td>
+              <td class="p-2">${escapeHtml(l.details)}</td>
+              <td class="p-2"><span class="rounded border-2 border-black ${badge} px-1.5 py-0.5 text-xs font-bold">${escapeHtml(l.status)}</span></td>
+            `;
+            lBody.append(tr);
+          });
+        } catch (e) { toast(e.message, 'error'); }
+      }
+
+      // --- Form Handlers ---
+      $('#register-form').onsubmit = async (e) => {
+        e.preventDefault();
+        const form = new FormData(e.target);
+        const payload = Object.fromEntries(form);
+        try {
+          const data = await api('/register', { method: 'POST', body: JSON.stringify(payload) });
+          $('#disp-confirm-code').textContent = data.confirmation_code;
+          $('#disp-totp-secret').textContent = data.totp_secret;
+          $('#reg-secret-box').classList.remove('hidden');
+          $('#confirm-username').value = payload.username.trim();
+          $('#confirm-code-input').value = data.confirmation_code;
+          toast(data.message, 'success');
+          e.target.reset();
+        } catch (err) { toast(err.message, 'error'); }
+      };
+
+      $('#confirm-form').onsubmit = async (e) => {
+        e.preventDefault();
+        try {
+          const data = await api('/confirm', { method: 'POST', body: JSON.stringify(Object.fromEntries(new FormData(e.target))) });
+          toast(data.message, 'success');
+          e.target.reset();
+        } catch (err) { toast(err.message, 'error'); }
+      };
+
+      $('#login-form').onsubmit = async (e) => {
+        e.preventDefault();
+        try {
+          const data = await api('/login', { method: 'POST', body: JSON.stringify(Object.fromEntries(new FormData(e.target))) });
+          currentUser = data.user;
+          updateNavUser();
+          switchView('shop');
+          toast(data.message, 'success');
+          e.target.reset();
+        } catch (err) { toast(err.message, 'error'); }
+      };
+
+      $('#logout-button').onclick = async () => {
+        try {
+          await api('/logout', { method: 'POST' });
+          currentUser = null;
+          updateNavUser();
+          toast('Logged out safely.', 'info');
+        } catch (err) { toast(err.message, 'error'); }
+      };
+
+      $('#newsletter-form').onsubmit = async (e) => {
+        e.preventDefault();
+        try {
+          const data = await api('/newsletter', { method: 'POST', body: JSON.stringify(Object.fromEntries(new FormData(e.target))) });
+          toast(data.message, 'success');
+          e.target.reset();
+        } catch (err) { toast(err.message, 'error'); }
+      };
+
+      $('#checkout-form').onsubmit = async (e) => {
+        e.preventDefault();
+        try {
+          const coupon_code = new FormData(e.target).get('coupon_code').trim();
+          const data = await api('/checkout', { method: 'POST', body: JSON.stringify({ coupon_code }) });
+          currentUser.store_credit = data.remaining_credit;
+          updateNavUser();
+          cartCache = {};
+          renderCart();
+          $('#rec-id').textContent = data.order.order_id;
+          $('#rec-items').textContent = data.order.items_summary;
+          $('#rec-coupon').textContent = data.order.coupon_used;
+          $('#rec-paid').textContent = money(data.order.total_paid);
+          $('#order-receipt').classList.remove('hidden');
+          e.target.reset();
+          toast(data.message, 'success');
+          loadProducts();
+        } catch (err) { toast(err.message, 'error'); }
+      };
+
+      $('#profile-form').onsubmit = async (e) => {
+        e.preventDefault();
+        try {
+          const data = await api('/account', { method: 'PUT', body: JSON.stringify(Object.fromEntries(new FormData(e.target))) });
+          currentUser = data.user;
+          updateNavUser();
+          toast(data.message, 'success');
+        } catch (err) { toast(err.message, 'error'); }
+      };
+
+      $('#admin-coupon-form').onsubmit = async (e) => {
+        e.preventDefault();
+        try {
+          await api('/admin/coupons', { method: 'POST', body: JSON.stringify(Object.fromEntries(new FormData(e.target))) });
+          toast('Coupon created.', 'success');
+          e.target.reset();
+          loadAdminData();
+        } catch (err) { toast(err.message, 'error'); }
+      };
+
+      $('#admin-product-form').onsubmit = async (e) => {
+        e.preventDefault();
+        try {
+          await api('/admin/products', { method: 'POST', body: JSON.stringify(Object.fromEntries(new FormData(e.target))) });
+          toast('Product added.', 'success');
+          e.target.reset();
+          loadAdminData();
+        } catch (err) { toast(err.message, 'error'); }
+      };
+
+      // Bootstrap session & CSRF token on load
+      (async () => {
+        try {
+          const s = await api('/session');
+          if (s.logged_in && s.user) {
+            currentUser = s.user;
+            updateNavUser();
+            switchView('shop');
+          }
+        } catch (_) {}
+      })();
+    </script>
+  </body>
+</html>

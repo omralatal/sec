@@ -108,7 +108,7 @@ SecureShop follows a decoupled **Client–Server REST Architecture** where a sin
 SecureShop-CET431/
 ├── app.py                                      # Hardened Flask backend (:5000)
 ├── naive_app.py                                # Unhardened baseline backend (:5001)
-├── dashboard.py                                # Automated 7-vector comparison harness (:5050)
+├── dashboard.py                            # Automated 7-vector comparison harness (:5050)
 ├── index.html                                  # Frontend SPA (HTML5 + TailwindCSS + JS)
 ├── README.md                                   # Project setup, credentials & architecture
 └── docs/
